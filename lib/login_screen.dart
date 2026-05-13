@@ -69,10 +69,13 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: () async {
                   // 여기 IP 주소 부분 내(해민) 터미널에서 찾은 IPv4 주소로 변경할 것
-                  const String myIp = '192.168.45.13'; 
+                  const String myIp = '172.20.86.203'; 
                   const String url = 'http://' + myIp + ':5000/api/login';
 
                   try {
+                    // 💡 1. 콘솔에서 신호가 제대로 출발했는지 확인!
+                    print("🚀 서버로 로그인 요청 출발: $url"); 
+
                     // 서버로 아이디와 비밀번호 전송
                     final response = await http.post(
                       Uri.parse(url),
@@ -81,24 +84,36 @@ class _LoginScreenState extends State<LoginScreen> {
                         "user_id": _idController.text,
                         "password": _pwController.text,
                       }),
-                    );
+                    ).timeout(const Duration(seconds: 5)); // 🔥 5초 타임아웃 추가!
+
+                    // 💡 2. 서버가 뭐라고 대답했는지 콘솔에 출력!
+                    print("✅ 서버 응답 도착, 상태 코드: ${response.statusCode}"); 
 
                     // 서버가 200(성공)을 외치면 메인 화면으로 넘어갑니다.
                     if (response.statusCode == 200) {
+                      if (!context.mounted) return;
+
+                      FocusScope.of(context).unfocus();
+                      
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (context) => const MainScreen()),
                       );
                     } else {
                       // 실패하면 실패 이유를 알려주는 작은 알림창을 띄웁니다.
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('아이디나 비밀번호가 틀렸습니다.')),
                       );
                     }
                   } catch (e) {
+                    // 🔥 3. 앱이 멈추지 않고 여기에 진짜 에러 이유를 토해냅니다!
+                    print("🚨 앗! 에러 발생 (진짜 범인): $e"); 
+                    
                     // 인터넷 연결이 안 되거나 주소가 틀렸을 때
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('서버와 연결할 수 없습니다.')),
+                      SnackBar(content: Text('서버 연결 실패: $e')),
                     );
                   }
                 },

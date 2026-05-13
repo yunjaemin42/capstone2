@@ -11,7 +11,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final String myIp = '192.168.45.13';
+  final String myIp = '172.20.86.203';
 
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _pwController = TextEditingController();
