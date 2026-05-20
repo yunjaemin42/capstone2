@@ -39,11 +39,7 @@ void main() async {
   print("🔥 내 기기 FCM 토큰: $token");
   print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-  // 5. '토픽' 구독 (노드 서버에서 'highfive_alerts' 토픽으로 알림을 보낼 예정입니다)
-  await messaging.subscribeToTopic('highfive_alerts');
-  print('📢 highfive_alerts 토픽 구독 성공!');
-
-  // 6. 포그라운드 메시지 수신 핸들러
+  // 5. 포그라운드 메시지 수신 핸들러
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print('포그라운드 메시지: ${message.notification?.title} - ${message.notification?.body}');
   });
