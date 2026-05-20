@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
-import 'login_screen.dart'; 
+import 'login_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
+
+// 백그라운드 메시지 핸들러 (main() 위에 최상위 함수로 선언 필수)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('백그라운드 메시지: ${message.notification?.title}');
+}
 
 void main() async {
   // 1. 필수: 플러터 엔진과 상호작용 준비
@@ -13,6 +20,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // 백그라운드 메시지 핸들러 등록
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // 3. 알림 권한 요청 (안드로이드 13+ 및 iOS 필수)
   FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -32,6 +42,11 @@ void main() async {
   // 5. '토픽' 구독 (노드 서버에서 'highfive_alerts' 토픽으로 알림을 보낼 예정입니다)
   await messaging.subscribeToTopic('highfive_alerts');
   print('📢 highfive_alerts 토픽 구독 성공!');
+
+  // 6. 포그라운드 메시지 수신 핸들러
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('포그라운드 메시지: ${message.notification?.title} - ${message.notification?.body}');
+  });
 
   runApp(MyApp(fcmToken: token));
 }
