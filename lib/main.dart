@@ -33,11 +33,12 @@ void main() async {
   await messaging.subscribeToTopic('highfive_alerts');
   print('📢 highfive_alerts 토픽 구독 성공!');
 
-  runApp(const MyApp());
+  runApp(MyApp(fcmToken: token));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? fcmToken;
+  const MyApp({super.key, this.fcmToken});
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +49,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.mainBlue),
         useMaterial3: true,
       ),
-      home: const LoginScreen(), 
+      home: LoginScreen(fcmToken: fcmToken),
     );
   }
 }

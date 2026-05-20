@@ -6,7 +6,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? fcmToken;
+  const LoginScreen({super.key, this.fcmToken});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -91,10 +92,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // 서버가 200(성공)을 외치면 메인 화면으로 넘어갑니다.
                     if (response.statusCode == 200) {
+                      // FCM 토큰을 서버에 등록
+                      final fcmToken = widget.fcmToken;
+                      if (fcmToken != null) {
+                        try {
+                          await http.post(
+                            Uri.parse('http://$myIp:5000/api/notification/register-token'),
+                            headers: {'Content-Type': 'application/json'},
+                            body: jsonEncode({
+                              "user_id": _idController.text,
+                              "token": fcmToken,
+                            }),
+                          );
+                          print("✅ FCM 토큰 등록 완료");
+                        } catch (e) {
+                          print("⚠️ FCM 토큰 등록 실패: $e");
+                        }
+                      }
+
                       if (!context.mounted) return;
 
                       FocusScope.of(context).unfocus();
-                      
+
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (context) => const MainScreen()),
