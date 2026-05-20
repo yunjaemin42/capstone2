@@ -7,7 +7,8 @@ import 'setting_screen.dart';
 import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final String userId;
+  const MainScreen({super.key, required this.userId});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -16,13 +17,18 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; // 처음에 보여줄 탭 (0번 = 홈)
 
-  // 탭을 누를 때마다 보여줄 4개의 방 목록
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const HistoryScreen(),
-    const SettingScreen(),
-    const ProfileScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const HomeScreen(),
+      HistoryScreen(userId: widget.userId),
+      const SettingScreen(),
+      const ProfileScreen(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {

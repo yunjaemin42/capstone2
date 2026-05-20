@@ -48,6 +48,11 @@ void main() async {
     print('포그라운드 메시지: ${message.notification?.title} - ${message.notification?.body}');
   });
 
+  // 7. 알림 클릭으로 앱 열릴 때 핸들러
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print('알림 클릭으로 앱 열림: ${message.notification?.title}');
+  });
+
   runApp(MyApp(fcmToken: token));
 }
 

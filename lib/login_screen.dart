@@ -116,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const MainScreen()),
+                        MaterialPageRoute(builder: (context) => MainScreen(userId: _idController.text)),
                       );
                     } else {
                       // 실패하면 실패 이유를 알려주는 작은 알림창을 띄웁니다.
