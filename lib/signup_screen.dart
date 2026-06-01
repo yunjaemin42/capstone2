@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'app_colors.dart';
+import 'config.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -11,8 +12,6 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final String myIp = '172.20.86.203';
-
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _pwController = TextEditingController();
   final TextEditingController _pwConfirmController = TextEditingController();
@@ -38,7 +37,7 @@ class _SignupScreenState extends State<SignupScreen> {
   // ==============================================================
   Future<void> _registerUser() async {
     // 💡 수정 완료: const를 final로 바꾸고, 글자 결합을 $ 기호로 예쁘게 수정!
-    final String url = 'http://$myIp:5000/api/register';
+    const String url = '${AppConfig.apiBaseUrl}/register';
 
     try {
       final response = await http.post(
@@ -89,7 +88,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     // 💡 수정 완료: const -> final 및 $ 기호 사용
-    final String url = 'http://$myIp:5000/api/check-id';
+    const String url = '${AppConfig.apiBaseUrl}/check-id';
 
     try {
       final response = await http.post(

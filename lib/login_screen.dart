@@ -4,6 +4,7 @@ import 'signup_screen.dart';
 import 'main_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'config.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? fcmToken;
@@ -69,9 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
               // 로그인 버튼
               ElevatedButton(
                 onPressed: () async {
-                  // 여기 IP 주소 부분 내(해민) 터미널에서 찾은 IPv4 주소로 변경할 것
-                  const String myIp = '172.20.86.203'; 
-                  const String url = 'http://' + myIp + ':5000/api/login';
+                  const String url = '${AppConfig.apiBaseUrl}/login';
 
                   try {
                     // 💡 1. 콘솔에서 신호가 제대로 출발했는지 확인!
@@ -85,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         "user_id": _idController.text,
                         "password": _pwController.text,
                       }),
-                    ).timeout(const Duration(seconds: 5)); // 🔥 5초 타임아웃 추가!
+                    ).timeout(const Duration(seconds: 15)); // 🔥 5초 타임아웃 추가!
 
                     // 💡 2. 서버가 뭐라고 대답했는지 콘솔에 출력!
                     print("✅ 서버 응답 도착, 상태 코드: ${response.statusCode}"); 
@@ -97,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (fcmToken != null) {
                         try {
                           await http.post(
-                            Uri.parse('http://$myIp:5000/api/notification/register-token'),
+                            Uri.parse('${AppConfig.apiBaseUrl}/notification/register-token'),
                             headers: {'Content-Type': 'application/json'},
                             body: jsonEncode({
                               "user_id": _idController.text,

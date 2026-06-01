@@ -23,9 +23,9 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const HomeScreen(),
+      HomeScreen(userId: widget.userId),
       HistoryScreen(userId: widget.userId),
-      const SettingScreen(),
+      SettingScreen(userId: widget.userId),
       const ProfileScreen(),
     ];
   }

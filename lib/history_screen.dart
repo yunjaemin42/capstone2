@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'app_colors.dart';
+import 'config.dart';
 
 class HistoryScreen extends StatefulWidget {
   final String userId;
@@ -12,7 +13,6 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  final String myIp = '172.20.86.203';
   List<dynamic> _logs = [];
   bool _isLoading = false;
 
@@ -26,7 +26,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() { _isLoading = true; });
     try {
       final response = await http.get(
-        Uri.parse('http://$myIp:5000/api/logs?user_id=${widget.userId}'),
+        Uri.parse('${AppConfig.apiBaseUrl}/logs?user_id=${widget.userId}'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
