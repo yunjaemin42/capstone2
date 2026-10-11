@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const inspectionRoutes = require('./routes/inspection');
 const historyRoutes = require('./routes/history');
+const userRoutes = require('./routes/user');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api', inspectionRoutes);
 app.use('/api', historyRoutes);
+app.use('/api', userRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
