@@ -8,10 +8,10 @@ import '../data/mock_data.dart' show mockInspections, mockStats, mockUser;
 
 // ── EC2 서버 주소 ──────────────────────────────────────
 // 실제 서버 IP 로 교체하세요.
-const _base = 'http://YOUR_EC2_IP/api';
+const _base = 'http://172.30.1.1:3000/api';
 
 // 개발 중 실서버 없이 mock 데이터로 실행하려면 true 로 설정하세요.
-const _useMock = true;
+const _useMock = false;
 // ───────────────────────────────────────────────────────
 
 class ApiService {
@@ -40,7 +40,15 @@ class ApiService {
       return mockInspections;
     }
 
-    final res = await http.get(Uri.parse('$_base/history?limit=50'));
+    print('[API] GET $_base/history');
+    late http.Response res;
+    try {
+      res = await http.get(Uri.parse('$_base/history?limit=50'));
+    } catch (e) {
+      print('[API] history 연결 실패: $e');
+      rethrow;
+    }
+    print('[API] history status=${res.statusCode}');
     if (res.statusCode != 200) throw Exception('history 요청 실패 (${res.statusCode})');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     return (body['records'] as List)
@@ -98,5 +106,24 @@ class ApiService {
     final res = await http.get(Uri.parse('$_base/user'));
     if (res.statusCode != 200) throw Exception('user 요청 실패 (${res.statusCode})');
     return UserData.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  // ─────────────────────────────────────────────
+  // 사용자 정보 업데이트
+  // PATCH $_base/user  body: { "name": "...", "email": "..." }
+  // ─────────────────────────────────────────────
+  static Future<void> updateUser({String? name, String? email}) async {
+    if (_useMock) return;
+
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (email != null) body['email'] = email;
+
+    final res = await http.patch(
+      Uri.parse('$_base/user'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    if (res.statusCode != 200) throw Exception('user 업데이트 실패 (${res.statusCode})');
   }
 }

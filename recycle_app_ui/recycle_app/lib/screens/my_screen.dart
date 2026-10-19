@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'points_history_screen.dart';
+import 'login_screen.dart';
 
 const _keyReturnAlert = 'notif_return_alert';
 const _keyWeeklyReport = 'notif_weekly_report';
@@ -251,7 +252,12 @@ class _MyScreenState extends State<MyScreen> {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () {},
+              onTap: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
               child: Text(
                 '로그아웃',
                 style: ts(13, weight: FontWeight.w500, color: AppColors.muted),
@@ -294,11 +300,14 @@ class _MyScreenState extends State<MyScreen> {
   }
 
   Widget _menu(String label) {
-    return ListTile(
-      dense: true,
-      title: Text(label, style: ts(14)),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.muted),
-      onTap: () {},
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        dense: true,
+        title: Text(label, style: ts(14)),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.muted),
+        onTap: () {},
+      ),
     );
   }
 }
