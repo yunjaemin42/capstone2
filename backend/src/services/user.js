@@ -5,15 +5,55 @@
 const { listRecords } = require('./database');
 
 const USE_LOCAL_MOCK = process.env.USE_LOCAL_MOCK !== 'false';
+const USERS_TABLE = process.env.USERS_TABLE_NAME || 'Users';
 
 // 기본 사용자 (단일 사용자 시스템)
 let localUser = {
+  email: 'user@app.local',
   name: '사용자',
   joinedAt: new Date().toISOString(),
-  points: 0,
   notifReturn: true,
   notifWeekly: false,
 };
+
+// DynamoDB 클라이언트 (지연 초기화)
+let ddbDocClient = null;
+function getDdbDocClient() {
+  if (!ddbDocClient) {
+    const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+    const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
+    const client = new DynamoDBClient({ region: process.env.AWS_REGION });
+    ddbDocClient = DynamoDBDocumentClient.from(client);
+  }
+  return ddbDocClient;
+}
+
+// DynamoDB에서 사용자 로드 (단일 사용자 시스템 - Scan으로 첫 번째 항목 사용)
+async function loadUserFromDb() {
+  console.log(`[USER] loadUserFromDb: table=${USERS_TABLE}`);
+  const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
+  const result = await getDdbDocClient().send(
+    new ScanCommand({ TableName: USERS_TABLE, Limit: 1 })
+  );
+  console.log(`[USER] loadUserFromDb: found ${result.Items?.length ?? 0} items`);
+  if (result.Items && result.Items.length > 0) {
+    localUser = { ...localUser, ...result.Items[0] };
+    console.log(`[USER] loadUserFromDb: loaded name=${localUser.name}`);
+  }
+}
+
+// DynamoDB에 사용자 저장
+async function saveUserToDb() {
+  console.log(`[USER] saveUserToDb: table=${USERS_TABLE} email=${localUser.email} name=${localUser.name}`);
+  const { PutCommand } = require('@aws-sdk/lib-dynamodb');
+  await getDdbDocClient().send(
+    new PutCommand({
+      TableName: USERS_TABLE,
+      Item: { ...localUser },
+    })
+  );
+  console.log('[USER] saveUserToDb: success');
+}
 
 // 등급 계산 (누적 배출 횟수 기준 — Flutter 앱 등급표와 동일)
 function calcGrade(total) {
@@ -28,6 +68,10 @@ function calcGrade(total) {
 const POINTS_PER_PASS = 10;
 
 async function getUserData() {
+  if (!USE_LOCAL_MOCK) {
+    await loadUserFromDb();
+  }
+
   const now = new Date();
   const allRecords = await listRecords(1000);
 
@@ -44,7 +88,7 @@ async function getUserData() {
 
   // 누적 포인트 = 전체 통과 건수 * 10
   const totalPassed = allRecords.filter((r) => !r.contaminated).length;
-  const points = USE_LOCAL_MOCK ? totalPassed * POINTS_PER_PASS : localUser.points;
+  const points = totalPassed * POINTS_PER_PASS;
 
   // 가입 경과 일수
   const joinedAt = new Date(localUser.joinedAt);
@@ -81,9 +125,12 @@ async function getUserData() {
 }
 
 async function updateUser(fields) {
-  const allowed = ['name', 'notifReturn', 'notifWeekly'];
+  const allowed = ['name', 'email', 'notifReturn', 'notifWeekly'];
   for (const key of allowed) {
     if (fields[key] !== undefined) localUser[key] = fields[key];
+  }
+  if (!USE_LOCAL_MOCK) {
+    await saveUserToDb();
   }
   return getUserData();
 }
