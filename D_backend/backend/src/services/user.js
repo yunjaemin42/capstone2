@@ -125,7 +125,7 @@ async function getUserData() {
 }
 
 async function updateUser(fields) {
-  const allowed = ['name', 'email', 'notifReturn', 'notifWeekly'];
+  const allowed = ['name', 'email', 'password', 'notifReturn', 'notifWeekly'];
   for (const key of allowed) {
     if (fields[key] !== undefined) localUser[key] = fields[key];
   }
@@ -135,4 +135,17 @@ async function updateUser(fields) {
   return getUserData();
 }
 
-module.exports = { getUserData, updateUser };
+// 이메일로 사용자 조회 후 비밀번호 확인
+async function loginUser(email, password) {
+  if (USE_LOCAL_MOCK) {
+    return localUser.email === email && localUser.password === password;
+  }
+  const { GetCommand } = require('@aws-sdk/lib-dynamodb');
+  const result = await getDdbDocClient().send(
+    new GetCommand({ TableName: USERS_TABLE, Key: { email } })
+  );
+  if (!result.Item) return false;
+  return result.Item.password === password;
+}
+
+module.exports = { getUserData, updateUser, loginUser };
