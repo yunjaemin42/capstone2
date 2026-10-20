@@ -51,4 +51,27 @@ async function uploadImage(fileBuffer, fileName, mimeType) {
   return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 }
 
-module.exports = { uploadImage, USE_LOCAL_MOCK };
+/**
+ * S3 URL을 Pre-signed URL로 변환 (1시간 유효)
+ * S3 객체가 private일 때 앱에서 접근 가능하도록 서명된 URL을 생성한다.
+ * @param {string|null} s3Url - 저장된 S3 URL
+ * @returns {Promise<string|null>}
+ */
+async function getPresignedUrl(s3Url) {
+  if (!s3Url || USE_LOCAL_MOCK) return s3Url;
+
+  const { GetObjectCommand } = require('@aws-sdk/client-s3');
+  const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+  const bucket = process.env.S3_BUCKET_NAME;
+  const prefix = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+  const key = s3Url.startsWith(prefix) ? s3Url.slice(prefix.length) : s3Url;
+
+  return await getSignedUrl(
+    getS3Client(),
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+    { expiresIn: 3600 }, // 1시간
+  );
+}
+
+module.exports = { uploadImage, getPresignedUrl, USE_LOCAL_MOCK };

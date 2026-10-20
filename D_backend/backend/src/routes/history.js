@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { listRecords, getStatistics } = require('../services/database');
+const { getPresignedUrl } = require('../services/storage');
 
 const router = express.Router();
 
@@ -13,7 +14,16 @@ router.get('/history', async (req, res) => {
   try {
     const limit = Number(req.query.limit) || 20;
     const records = await listRecords(limit);
-    res.json({ count: records.length, records });
+
+    // S3 private 객체는 pre-signed URL로 교체 (1시간 유효)
+    const signedRecords = await Promise.all(
+      records.map(async (r) => ({
+        ...r,
+        imageUrl: r.imageUrl ? await getPresignedUrl(r.imageUrl) : null,
+      }))
+    );
+
+    res.json({ count: signedRecords.length, records: signedRecords });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
