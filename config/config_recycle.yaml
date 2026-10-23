@@ -1,0 +1,25 @@
+data_root: /content/drive/MyDrive/뚝딱뚝딱/model(YOLO)/datasets
+cache_path: /content/drive/MyDrive/뚝딱뚝딱/model(YOLO)/cache
+output_path: /content/drive/MyDrive/뚝딱뚝딱/model(YOLO)/outputs
+names:
+  0: plastic
+  1: pet
+  2: glass
+  3: can
+  4: paper
+  5: vinyl
+extra_caches:
+- vinyl_label
+- paper_label
+- glass_cap
+- cup_holder
+- box
+repeat:
+  cup_holder: 5
+  box: 3
+seed: 42
+epochs: 100
+batch_size: 32
+learning_rate: 0.001
+patience: 15
+target_count: 500
