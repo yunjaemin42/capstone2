@@ -35,6 +35,7 @@ def _move(ch, target, delay):
         time.sleep(delay)
     _current[ch] = target
 
+
 def ready(bin_number):
     """115도로 나가서 대기"""
     _move(CHANNELS[bin_number - 1], ANGLE_READY, DELAY_READY)
