@@ -64,7 +64,7 @@ ATTACH_MSG = {
 NOT_ACCEPTED = {"paper", "vinyl"}
 
 # 조명 LED (릴레이2)
-LED_PIN = 27
+LED_PIN = 17
 LED_ON_VALUE = 1          # 릴레이가 반대로 동작하면 0으로
 LED_WARMUP = 2            # LED 켜고 밝기가 안정될 때까지 대기(초)
 
