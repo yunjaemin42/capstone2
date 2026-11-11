@@ -1,29 +1,3 @@
-"""
-라즈베리파이용 재활용품 판정 코드
-
-필요한 파일 (같은 폴더에 두기)
-    recycle_detector.py   ← 이 파일
-    recycle.onnx          ← 변환한 모델
-
-설치 (라즈베리파이 터미널)
-    python3 -m venv --system-site-packages venv
-    source venv/bin/activate
-    pip install ultralytics onnxruntime
-
-실행
-    python recycle_detector.py test.jpg     # 사진 파일로 테스트
-    python recycle_detector.py              # 카메라로 1장 찍어서 판정
-    python recycle_detector.py --live       # 실시간 탐지 (모니터 없으면 브라우저 :8000으로 보기)
-    python recycle_detector.py --collect glass_cap   # 학습용 원본 사진 모으기 (captures/glass_cap/)
-
-다른 코드(하드웨어 제어, 서버 전송)에서 쓸 때
-    from recycle_detector import RecycleDetector
-    detector = RecycleDetector("recycle.onnx")
-    result = detector.inspect(frame)        # frame: OpenCV BGR 이미지
-    result["decision"]                      # "통과" 또는 "반환"
-    result["category"]                      # 통과 시 분류 칸 (pet, plastic, glass, can)
-"""
-
 import os
 import sys
 import time
