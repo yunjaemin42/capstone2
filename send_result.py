@@ -5,7 +5,7 @@ AI 판별 결과를 백엔드 서버로 전송하는 모듈
     from send_result import send_result
     send_result(result, frame)
 
-    result: RecycleDetector.inspect() 반환값
+    result: RecycleDetector.inspect() 반환값 (+ SecondCheck.check() 결과의 weight_g)
     frame:  촬영 원본 이미지 (OpenCV BGR)
 """
 
@@ -29,11 +29,12 @@ def send_result(result: dict, frame=None) -> dict:
     category    = result.get("category")      # 통과 시 분류 칸 (pet/plastic/glass/can)
     is_rejected = (decision == "반환")
 
-    # itemType: 통과이면 AI가 분류한 칸, 반환이면 박스에서 읽거나 "unknown"
+    # itemType: 분류된 품목이 있으면 그것, 없으면 확신도 가장 높은 물체 박스(stain 제외), 그것도 없으면 "unknown"
+    objects = [b for b in result.get("boxes", []) if b["name"] != "stain"]
     if category:
         item_type = category
-    elif result.get("boxes"):
-        item_type = result["boxes"][0]["name"]
+    elif objects:
+        item_type = max(objects, key=lambda b: b["conf"])["name"]
     else:
         item_type = "unknown"
 
@@ -42,6 +43,10 @@ def send_result(result: dict, frame=None) -> dict:
         "contaminated": "true" if is_rejected else "false",
         "reason":       reason if is_rejected else "",
     }
+
+    # 무게(g): AI 통과 품목만 측정함. 측정 안 했거나 실패하면 보내지 않음
+    if result.get("weight_g") is not None:
+        data["weight"] = str(result["weight_g"])
 
     # 반환 판정이면 박스 그린 이미지도 첨부
     files = None

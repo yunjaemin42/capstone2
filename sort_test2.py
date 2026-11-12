@@ -17,6 +17,12 @@ class Stopped(Exception):
 
 
 def wait(seconds):
+    """seconds 동안 대기. 그 사이 엔터를 누르면 Stopped (비상 정지)"""
+    if not sys.stdin.isatty():
+        # 터미널 없이 실행(백그라운드·자동 실행)하면 stdin 이 항상 '읽을 수 있음'으로 떠서
+        # 매번 정지돼 버림 → 이때는 그냥 기다리기만 한다
+        time.sleep(seconds)
+        return
     if select([sys.stdin], [], [], seconds)[0]:
         sys.stdin.readline()
         raise Stopped

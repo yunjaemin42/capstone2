@@ -18,7 +18,7 @@ from ultralytics import YOLO
 # 설정
 # ============================================================
 
-MODEL_PATH = "recycle.onnx"
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recycle.onnx")   # 어느 폴더에서 실행해도 찾게
 IMAGE_SIZE = 640          # 학습·변환할 때와 같은 크기
 SHOW_CONF = 0.2          # 모델에서 받아올 최소 확신도 (판정은 아래 기준으로 다시 거름)
 JUDGE_CONF = 0.3          # 본체 판정에 쓸 최소 확신도
@@ -36,10 +36,13 @@ ATTACH_MSG = {
 
 # 단독으로 들어오면 반환할 품목 (이 수거함이 받지 않는 재질)
 NOT_ACCEPTED = {"paper", "vinyl"}
+NOT_ACCEPTED_MSG = "이 수거함에 넣을 수 없는 품목이에요"
 
-# 조명 LED (릴레이2)
-LED_PIN = 17
-LED_ON_VALUE = 1          # 릴레이가 반대로 동작하면 0으로
+# 오염(stain) 클래스: 물체가 아니라 용기 표면의 오염 → 하나라도 잡히면 반환
+STAIN_CLASS = "stain"
+STAIN_MSG = "용기에 이물질이 묻어 있어요. 헹궈서 버려 주세요"
+
+# 조명 LED: 핀·켜짐 값은 led.py 에서 관리
 LED_WARMUP = 2            # LED 켜고 밝기가 안정될 때까지 대기(초)
 
 # 카메라 밝기 보정 (0 = 자동 그대로, 음수 = 어둡게). LED에 뚜껑이 하얗게 날아가면 낮추기
@@ -75,21 +78,17 @@ def preprocess(frame):
 # ============================================================
 
 def led(on):
-    """조명 LED 켜기/끄기 (GPIO 없는 PC에서는 그냥 넘어감)"""
+    """조명 LED 켜기/끄기 (단독 실행·test 용, led.py 사용. GPIO 없는 PC에서는 그냥 넘어감)"""
     try:
-        import RPi.GPIO as GPIO
-    except ImportError:
+        import led as light
+    except (ImportError, RuntimeError):
         return
 
     if on:
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(LED_PIN, GPIO.OUT)
-        GPIO.output(LED_PIN, LED_ON_VALUE)
+        light.led_on()
         time.sleep(LED_WARMUP)
     else:
-        GPIO.output(LED_PIN, 1 - LED_ON_VALUE)
-        GPIO.cleanup()
+        light.led_off()
 
 
 # ============================================================
@@ -121,7 +120,13 @@ def judge(boxes):
     ]
     boxes = strong + weak
 
+    # 오염 박스는 본체·부착물 판단에서 빼고 따로 본다
+    stained = any(b["name"] == STAIN_CLASS for b in boxes)
+    boxes = [b for b in boxes if b["name"] != STAIN_CLASS]
+
     if not boxes:
+        if stained:
+            return "반환", NOT_ACCEPTED_MSG, None      # 오염만 잡히고 용기는 없음
         return "반환", "물체를 인식하지 못했어요", None
 
     # 다른 박스 안에 들어 있는 박스 = 부착물
@@ -134,7 +139,8 @@ def judge(boxes):
                 if part["name"] == body["name"]:
                     continue        # 같은 물체를 겹쳐 잡은 중복 박스 → 무시
                 key = (body["name"], part["name"])
-                messages.append(ATTACH_MSG.get(key, f"{body['name']}에 붙은 {part['name']}를 분리해 주세요"))
+                if key in ATTACH_MSG:
+                    messages.append(ATTACH_MSG[key])
 
     # 같은 클래스 박스가 여러 개면 한 물체로 본다 (확신도 낮을 때 생기는 중복)
     bodies = list(dict.fromkeys(b["name"] for k, b in enumerate(boxes) if k not in attached))
@@ -142,11 +148,18 @@ def judge(boxes):
     if len(bodies) >= 2:
         return "반환", "하나씩 넣어 주세요", None
 
+    if stained:
+        messages.insert(0, STAIN_MSG)
+
     if messages:
         return "반환", " / ".join(dict.fromkeys(messages)), None
 
+    if not bodies:
+        # 다른 품목 박스끼리 서로 감싸서 본체를 못 정함 (예: pet/plastic 헷갈림)
+        return "반환", "물체를 인식하지 못했어요", None
+
     if bodies[0] in NOT_ACCEPTED:
-        return "반환", "이 수거함에 넣을 수 없는 품목이에요", None
+        return "반환", NOT_ACCEPTED_MSG, None
 
     return "통과", bodies[0], bodies[0]
 
@@ -161,6 +174,12 @@ FONT_PATH = "/usr/share/fonts/truetype/nanum/NanumSquareRoundB.ttf"   # 카톡�
 FONT_SIZE = 18
 _font = None
 
+# 앱에 보여줄 라벨 (사용자용이라 한국어, 확신도 숫자는 표시 안 함)
+LABEL_BODY = {"plastic": "플라스틱", "pet": "페트병", "glass": "유리병",
+              "can": "캔", "paper": "종이", "vinyl": "비닐", "stain": "오염"}
+# 다른 박스 안에 든 부착물은 역할 이름으로 (유리병 안의 can → 뚜껑)
+LABEL_PART = {"can": "뚜껑", "paper": "종이 홀더", "vinyl": "라벨", "stain": "오염"}
+
 
 def draw_boxes(image, boxes):
     import numpy as np
@@ -174,7 +193,7 @@ def draw_boxes(image, boxes):
         except OSError:
             _font = ImageFont.load_default()
 
-    class_ids = {"plastic": 0, "pet": 1, "glass": 2, "can": 3, "paper": 4, "vinyl": 5}
+    class_ids = {"plastic": 0, "pet": 1, "glass": 2, "can": 3, "paper": 4, "vinyl": 5, "stain": 6}
     shown = [b for b in boxes if b["conf"] >= ATTACH_CONF]
 
     pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
@@ -189,12 +208,16 @@ def draw_boxes(image, boxes):
         r, g, bl = colors(class_ids.get(b["name"], 0), False)   # RGB
         draw.rectangle((x1, y1, x2, y2), outline=(r, g, bl), width=3)
 
-        text = f"{b['name']} {b['conf']:.2f}"
+        is_part = any(o is not b and inside(b["xyxy"], o["xyxy"]) for o in shown)
+        if is_part:
+            text = LABEL_PART.get(b["name"], LABEL_BODY.get(b["name"], b["name"]))
+        else:
+            text = LABEL_BODY.get(b["name"], b["name"])
+
         l, t, rr, bb = draw.textbbox((0, 0), text, font=_font)
         tw, th = rr - l, bb - t
         lw, lh = tw + pad * 2, th + pad * 2
 
-        is_part = any(o is not b and inside(b["xyxy"], o["xyxy"]) for o in shown)
         if is_part:
             ly = min(y2, H - lh)                  # 부착물: 박스 아래
         else:
@@ -220,10 +243,8 @@ class RecycleDetector:
         self.model = YOLO(model_path, task="detect")
 
         # 첫 실행은 준비 시간 때문에 느려서, 미리 한 번 돌려 둔다
-        dummy = None
-        if dummy is None:
-            import numpy as np
-            dummy = np.zeros((IMAGE_SIZE, IMAGE_SIZE, 3), dtype="uint8")
+        import numpy as np
+        dummy = np.zeros((IMAGE_SIZE, IMAGE_SIZE, 3), dtype="uint8")
         self.model.predict(dummy, imgsz=IMAGE_SIZE, verbose=False)
 
     def inspect(self, frame):
@@ -294,61 +315,6 @@ def timing_summary(times):
     print(f"\n===== 탐지 시간 요약 ({len(times)}장, 라즈베리파이 CPU) =====")
     print(f"   평균 {sum(times) / len(times):.1f} ms / 최소 {min(times):.1f} ms / 최대 {max(times):.1f} ms")
     print(f"   → 초당 약 {1000 / (sum(times) / len(times)):.0f}장 처리 가능")
-
-
-# ============================================================
-# 백엔드 전송 (AWS)
-#   DB 컬럼: id, date, imageUrl (서버가 채움) / itemType, contaminated, reason (여기서 보냄)
-#   사진은 multipart로 같이 보내면 EC2가 S3에 올리고 imageUrl을 채운다 (라즈베리파이에 AWS 키 불필요)
-# ============================================================
-
-SERVER_URL = "http://32.236.105.231:3000/api/inspection-result"
-SEND_TIMEOUT = 10         # 사진 업로드 포함. 서버가 느려도 수거함이 멈추지 않게
-IMAGE_FIELD = "image"     # 서버(multer)가 받는 사진 필드 이름
-
-
-def to_payload(result):
-    """판정 결과 → 서버로 보낼 JSON. 아무것도 인식 못 했으면 None (보내지 않음)"""
-    item = result["category"]
-    if item is None:
-        # 반환일 때도 어떤 물건이었는지 남기기: 확신도 가장 높은 본체
-        strong = [b for b in result["boxes"] if b["conf"] >= JUDGE_CONF]
-        if not strong:
-            return None
-        item = max(strong, key=lambda b: b["conf"])["name"]
-
-    return {
-        "itemType": item,                                  # pet, plastic, glass, can, paper, vinyl
-        "contaminated": result["decision"] == "반환",
-        "reason": result["reason"],
-    }
-
-
-def send_result(result):
-    """판정 결과 + 박스 그린 사진을 백엔드에 POST (multipart). 성공하면 True (실패해도 예외 없이 False)"""
-    import requests
-
-    payload = to_payload(result)
-    if payload is None:
-        print("   📡 전송 생략 (인식된 물체 없음)")
-        return False
-
-    # multipart 폼 값은 문자열이라 bool은 "true"/"false"로
-    data = {**payload, "contaminated": "true" if payload["contaminated"] else "false"}
-    ok, jpg = cv2.imencode(".jpg", result["plot"], [cv2.IMWRITE_JPEG_QUALITY, 85])
-    files = {IMAGE_FIELD: ("result.jpg", jpg.tobytes(), "image/jpeg")} if ok else None
-
-    try:
-        response = requests.post(SERVER_URL, data=data, files=files, timeout=SEND_TIMEOUT)
-    except requests.RequestException as e:
-        print(f"   📡 서버 연결 실패: {e}")
-        return False
-
-    if response.ok:
-        print(f"   📡 전송 성공 ({response.status_code}): {response.text[:200]}")
-        return True
-    print(f"   📡 전송 실패 ({response.status_code}): {response.text[:200]}")
-    return False
 
 
 # ============================================================
@@ -534,7 +500,8 @@ def live(detector):
                 print(f"{icon} 판정: {result['decision']} → {result['reason']}")
                 print(f"   {timing_text(result['timing'])}")
                 cv2.imwrite("result.jpg", result["plot"])
-                send_result(result)
+                from send_result import send_result
+                send_result(result, frame)
 
     finally:
         close()
@@ -595,5 +562,5 @@ if __name__ == "__main__":
     cv2.imwrite("result.jpg", result["plot"])
     print("박스 그린 사진 저장: result.jpg")
 
-    if "--no-send" not in sys.argv:
-        send_result(result)
+    from send_result import send_result
+    print(f"서버 응답: {send_result(result, frame)}")

@@ -1,7 +1,9 @@
 import time
 import RPi.GPIO as GPIO
 
-from recycle import RecycleDetector, capture, send_result
+from recycle import RecycleDetector, capture, LED_WARMUP
+from send_result import send_result
+from second_check import SecondCheck, SIZE_NAME
 import ultrasonic
 import led
 import sort_test2 as sorter
@@ -9,8 +11,6 @@ import conveyor
 import servo
 
 BIN_MAP = {"pet": 1, "plastic": 2, "glass": 3, "can": 4}
-BIN_NAME = {1: "투명 페트병", 2: "일반 플라스틱", 3: "유리", 4: "캔"}
-LED_WARMUP = 2
 
 
 def item_inserted():
@@ -52,7 +52,8 @@ def run_sort(bin_number):
 
 
 print("모델 불러오는 중...")
-detector = RecycleDetector("recycle.onnx")
+detector = RecycleDetector()
+checker = SecondCheck()
 print("준비 완료. 투입 대기 중... (종료: Ctrl+C)\n")
 
 try:
@@ -67,16 +68,30 @@ try:
         # 2. 촬영 + AI 판별
         frame = take_photo()
         result = detector.inspect(frame)
+        icon = "🟢" if result["decision"] == "통과" else "🔴"
+        print(f"  {icon} AI 판정: {result['decision']} → {result['reason']}")
+
+        # 3. 무게 측정 (AI 통과 품목만, 액추에이터로 밀기 전에)
+        if result["decision"] == "통과":
+            result.update(checker.check(result))
+            if "weight_g" in result:
+                size = SIZE_NAME.get(result.get("size"), "-")
+                limit = result.get("weight_limit_g", "-")
+                icon = "🟢" if result["decision"] == "통과" else "🔴"
+                print(f"  {icon} 무게: {result['weight_g']}g ({size}, 기준 {limit}g) → {result['decision']}")
+
         decision = result["decision"]
-        category = result["category"]
-        icon = "🟢" if decision == "통과" else "🔴"
-        print(f"  {icon} 판정: {decision} → {result['reason']}")
+        print(f"  ▶ 최종: {decision} → {result['reason']}")
 
-        # 3. 서버 전송
-        send_result(result)
+        # 4. 서버 전송
+        response = send_result(result, frame)
+        if response.get("success") is False:
+            print("  📡 전송 실패 (분류는 계속 진행)")
+        else:
+            print("  📡 전송 완료")
 
-        # 4. 분류
-        bin_number = BIN_MAP.get(category) if decision == "통과" else None
+        # 5. 분류
+        bin_number = BIN_MAP.get(result["category"]) if decision == "통과" else None
         run_sort(bin_number)
 
         wait_until_clear()
